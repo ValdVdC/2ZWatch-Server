@@ -7,7 +7,7 @@ const getHeaders = () => ({
   'Content-Type': 'application/json'
 });
 
-// Função genérica para realizar chamadas à API
+// Função para realizar chamadas à API
 const apiRequest = async (endpoint, params = {}) => {
   try {
     const response = await axios.get(

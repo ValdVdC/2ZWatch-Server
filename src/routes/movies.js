@@ -16,7 +16,7 @@ router.get('/:id/similar', controller.getSimilarMovies);
 router.get('/:id/recommendations', controller.getMovieRecommendations);
 router.get('/:id/keywords', controller.getMovieKeywords);
 
-// Rotas de pessoas (atores, diretores)
+// Rotas de pessoas
 router.get('/person/:id', controller.getPersonDetails);
 router.get('/person/:id/movies', controller.getPersonMovies);
 
@@ -24,7 +24,7 @@ router.get('/person/:id/movies', controller.getPersonMovies);
 router.get('/collection/:id', controller.getCollection);
 router.get('/company/:id', controller.getCompanyDetails);
 
-// Rota de detalhes do filme (deve ficar por último para não conflitar)
+// Rota de detalhes do filme
 router.get('/:id', controller.getMovieDetails);
 
 module.exports = router;
