@@ -4,7 +4,7 @@ const app = express();
 // Configurações
 require('./config/cache');
 const corsConfig = require('./config/cors');
-const { keepAliveMiddleware, healthRouter } = require('./middleware/keepalive');
+const { keepAliveMiddleware, healthRouter } = require('./middleware/keepAlive');
 
 // Middlewares
 app.use(corsConfig);
