@@ -1,13 +1,23 @@
 const { getTaxonomyCache } = require('../services/taxonomy');
 
 module.exports = {
-  getGenres: (req, res) => {
+  getMovieGenres: (req, res) => {
     try {
       const taxonomyCache = getTaxonomyCache();
-      res.json(taxonomyCache.genres);
+      res.json(taxonomyCache.movieGenres);
     } catch (error) {
       console.error('Erro ao buscar gêneros:', error);
       res.status(500).json({ error: 'Erro interno ao buscar gêneros' });
+    }
+  },
+
+  getSeriesGenres: (req, res) =>{
+    try{
+      const taxonomyCache = getTaxonomyCache()
+      res.json(taxonomyCache.seriesGenres);
+    }catch(error){
+      console.error('Erro ao buscar gêneros de séries:', error);
+      res.status(500).json({ error: 'Erro interno ao buscar gêneros' })
     }
   },
 

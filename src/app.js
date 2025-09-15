@@ -14,6 +14,7 @@ app.use(keepAliveMiddleware);
 // Rotas
 app.use('/health', healthRouter);
 app.use('/api/movies', require('./routes/movies'));
+app.use('/api/series', require('./routes/series'))
 app.use('/api/taxonomy', require('./routes/taxonomy'));
 
 // Rota de fallback para compatibilidade

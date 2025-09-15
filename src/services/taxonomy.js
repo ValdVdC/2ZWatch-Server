@@ -1,7 +1,8 @@
 const tmdbApi = require('../services/tmdbApi');
 
 let taxonomyCache = {
-  genres: {},
+  movieGenres: {},
+  seriesGenres:{},
   languages: {},
   countries: {},
   configuration: null
@@ -16,12 +17,18 @@ async function initializeTaxonomies() {
     taxonomyCache.configuration = configResponse.data;
     
     // Carregar todos os gêneros de filmes
-    const genresResponse = await tmdbApi.getGenres();
-    taxonomyCache.genres = genresResponse.data.genres.reduce((acc, genre) => {
+    const movieGenresResponse = await tmdbApi.getMovieGenres();
+    taxonomyCache.movieGenres = movieGenresResponse.data.genres.reduce((acc, genre) => {
       acc[genre.id] = genre.name;
       return acc;
     }, {});
     
+    const seriesGenreResponse = await tmdbApi.getSeriesGenres();
+    taxonomyCache.seriesGenres = seriesGenreResponse.data.genres.reduce((acc, genre) =>{
+      acc[genre.id] = genre.name;
+      return acc;
+    })
+
     // Carregar idiomas
     const languagesResponse = await tmdbApi.getLanguages();
     taxonomyCache.languages = languagesResponse.data.reduce((acc, language) => {
@@ -37,7 +44,8 @@ async function initializeTaxonomies() {
     }, {});
     
     console.log('Taxonomias do TMDB inicializadas com sucesso!');
-    console.log(`Gêneros carregados: ${Object.keys(taxonomyCache.genres).length}`);
+    console.log(`Gêneros de filme carregados: ${Object.keys(taxonomyCache.movieGenres).length}`);
+    console.log(`Gêneros de série carregados: ${Object.keys(taxonomyCache.seriesGenres).length}`)
     console.log(`Idiomas carregados: ${Object.keys(taxonomyCache.languages).length}`);
     console.log(`Países carregados: ${Object.keys(taxonomyCache.countries).length}`);
     

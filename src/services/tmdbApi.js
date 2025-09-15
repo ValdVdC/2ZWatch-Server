@@ -57,12 +57,30 @@ module.exports = {
   
   // Buscar filmes
   searchMovies: (query, params) => apiRequest('search/movie', { query, ...params }),
+  searchSeries: (query, params) => apiRequest('search/tv', {query, ...params}),
   
+  // Séries populares
+  getPopularSeries: (params) => apiRequest('tv/popular', params),
+
+  // Séries em exibição
+  getAiringTodaySeries: (params) => apiRequest('tv/airing_today', params),
+
+  // Em breve
+  getOnTheAirSeries: (params) => apiRequest('tv/on_the_air', params),
+
+  // Séries mais bem avaliadas
+  getTopRatedSeries: (params) => apiRequest('tv/top_rated', params),
+
+  // Detalhes da série
+  getSeriesDetails: (tvId, params) => apiRequest(`tv/${tvId}`,params),
+
   // Descobrir filmes por filtros
   discoverMovies: (params) => apiRequest('discover/movie', params),
+  discoverSeries: (params) => apiRequest('discover/tv', params),
   
   // Taxonomias
-  getGenres: () => apiRequest('genre/movie/list'),
+  getMovieGenres: () => apiRequest('genre/movie/list'),
+  getSeriesGenres: () => apiRequest('genre/tv/list'), 
   getLanguages: () => apiRequest('configuration/languages'),
   getCountries: () => apiRequest('configuration/countries'),
   
@@ -72,6 +90,7 @@ module.exports = {
   // Pessoas (atores, diretores)
   getPersonDetails: (personId) => apiRequest(`person/${personId}`),
   getPersonMovies: (personId) => apiRequest(`person/${personId}/movie_credits`),
+  getPersonSeries: (personId) => apiRequest(`person/${personId}/tv_credits`),
   
   // Coleções
   getCollection: (collectionId) => apiRequest(`collection/${collectionId}`),
@@ -81,10 +100,13 @@ module.exports = {
   
   // Keywords
   getMovieKeywords: (movieId) => apiRequest(`movie/${movieId}/keywords`),
+  getSeriesKeywords: (seriesId) => apiRequest(`tv/${seriesId}/keywords`),
   
   // Filmes similares
   getSimilarMovies: (movieId, params) => apiRequest(`movie/${movieId}/similar`, params),
+  getSimilarSeries: (seriesId, params) => apiRequest(`tv/${seriesId}/similar`, params),
   
   // Recomendações
-  getMovieRecommendations: (movieId, params) => apiRequest(`movie/${movieId}/recommendations`, params)
+  getMovieRecommendations: (movieId, params) => apiRequest(`movie/${movieId}/recommendations`, params),
+  getSeriesRecommendations: (seriesId, params) => apiRequest(`tv/${seriesId}/recommendations`, params)
 };

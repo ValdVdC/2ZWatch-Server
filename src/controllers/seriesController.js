@@ -1,24 +1,24 @@
-const { movieCache, genreCache } = require('../config/cache'); 
+const { seriesCache, genreCache } = require('../config/cache'); 
 const tmdbApi = require('../services/tmdbApi');
 const { 
   fetchWithFallback,
-  processMovies,
+  processSeries,
   processGenreBatch,
-  enrichMovieDetails,
+  enrichSeriesDetails,
   EnrichmentLevel
 } = require('../utils/helpers');
 
 module.exports = {
-  getPopularMovies: async (req, res) => {
+    getPopularSeries: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
       const pageSize = parseInt(req.query.pageSize) || 20;
 
-      const cacheKey = `popular_movies_${pageSize}_${page}`;
+      const cacheKey = `popular_series_${pageSize}_${page}`;
 
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             pageSize: pageSize,
@@ -29,18 +29,18 @@ module.exports = {
 
       const response = await fetchWithFallback(
         async () => {
-          return await tmdbApi.getPopularMovies({ page });
+          return await tmdbApi.getPopularSeries({ page });
         },
         async () => {
-          return await tmdbApi.getTopRatedMovies({ page });
+          return await tmdbApi.getTopRatedSeries({ page });
         }
       );
 
-      const movies = response.data.results || [];
+      const series = response.data.results || [];
 
-      if (!movies.length) {
+      if (!series.length) {
         return res.status(200).json({
-          movies: [],
+          series: [],
           pagination: {
             currentPage: page,
             pageSize: pageSize,
@@ -49,11 +49,11 @@ module.exports = {
         });
       }
 
-      const processedMovies = await processMovies(movies);
-      movieCache.set(cacheKey, processedMovies);
+      const processedSeries = await processSeries(series);
+      seriesCache.set(cacheKey, processedSeries);
 
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           pageSize: pageSize,
@@ -77,12 +77,12 @@ module.exports = {
     }
   },
 
-  getMoviesByGenre: async (req, res) => {
+  getSeriesByGenre: async (req, res) => {
     try {
       // Verificar o cache primeiro
-      const cachedMoviesByGenre = genreCache.get('genres_movies');
-      if (cachedMoviesByGenre) {
-        return res.status(200).json(cachedMoviesByGenre);
+      const cachedSeriesByGenre = genreCache.get('genres_series');
+      if (cachedSeriesByGenre) {
+        return res.status(200).json(cachedSeriesByGenre);
       }
 
       // Obter gêneros do cache de taxonomia
@@ -95,33 +95,33 @@ module.exports = {
       }
 
       // Buscar filmes por gênero
-      const moviesByGenre = await Promise.allSettled(
+      const seriesByGenre = await Promise.allSettled(
         genres.map(async genre => {
           try {
-            const response = await tmdbApi.discoverMovies({
+            const response = await tmdbApi.discoverSeries({
               with_genres: genre.id,
               sort_by: 'popularity.desc',
               page: 1
             });
 
-            const movies = response.data.results.slice(0, 20).map(movie => ({
-              ...movie,
-              poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-              backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
-              release_year: movie.release_date ? new Date(movie.release_date).getFullYear() : null
+            const series = response.data.results.slice(0, 20).map(series => ({
+              ...series,
+              poster_url: series.poster_path ? `https://image.tmdb.org/t/p/w500${series.poster_path}` : null,
+              backdrop_url: series.backdrop_path ? `https://image.tmdb.org/t/p/w1280${series.backdrop_path}` : null,
+              release_year: series.release_date ? new Date(series.release_date).getFullYear() : null
             }));
 
-            return { status: 'fulfilled', genre: genre.name, movies };
+            return { status: 'fulfilled', genre: genre.name, series };
           } catch (error) {
             console.error(`Erro ao buscar filmes do gênero ${genre.name}:`, error.message);
-            return { status: 'rejected', genre: genre.name, movies: [] };
+            return { status: 'rejected', genre: genre.name, series: [] };
           }
         })
       );
 
       // Filtrar apenas resultados bem-sucedidos
-      const result = moviesByGenre
-        .filter(item => item.status === 'fulfilled' && item.value.movies.length > 0)
+      const result = seriesByGenre
+        .filter(item => item.status === 'fulfilled' && item.value.series.length > 0)
         .map(item => ({
           id: genres.find(g => g.name === item.value.genre)?.id,
           value: item.value,
@@ -129,7 +129,7 @@ module.exports = {
         }));
 
       // Armazenar em cache
-      genreCache.set('genres_movies', result);
+      genreCache.set('genres_series', result);
 
       // Retornar resultado
       res.status(200).json(result);
@@ -139,18 +139,18 @@ module.exports = {
     }
   },
 
-  searchMovies: async (req, res) => {
+  searchSeries: async (req, res) => {
     try {
-      const movieName = req.params.name;
+      const seriesName = req.params.name;
       const page = parseInt(req.query.page) || 1;
       
       // Gerar chave de cache para esta busca específica
-      const cacheKey = `search_${movieName}_${page}`;
+      const cacheKey = `search_${seriesName}_${page}`;
       
       // Verificar cache primeiro
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -159,11 +159,11 @@ module.exports = {
       }
 
       // Buscar filmes
-      const response = await tmdbApi.searchMovies(movieName, { page });
+      const response = await tmdbApi.searchSeries(seriesName, { page });
       
       if (!response.data.results?.length) {
         return res.status(200).json({
-          movies: [],
+          series: [],
           pagination: {
             currentPage: page,
             hasMore: false
@@ -172,14 +172,14 @@ module.exports = {
       }
       
       // Processar filmes
-      const processedMovies = await processMovies(response.data.results);
+      const processedSeries = await processSeries(response.data.results);
       
       // Cachear os resultados
-      movieCache.set(cacheKey, processedMovies);
+      seriesCache.set(cacheKey, processedSeries);
       
       // Retornar resultados paginados
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -202,39 +202,39 @@ module.exports = {
     }
   },
 
-  getMovieDetails: async (req, res) => {
+  getSeriesDetails: async (req, res) => {
     try {
-      const movieId = req.params.id;
+      const seriesId = req.params.id;
       
-      if (isNaN(Number(movieId))) {
+      if (isNaN(Number(seriesId))) {
         return res.status(400).json({ error: 'ID do filme inválido' });
       }
 
-      const movieResponse = await tmdbApi.getMovieDetails(movieId, {
+      const seriesResponse = await tmdbApi.getSeriesDetails(seriesId, {
         append_to_response: 'credits,videos,images,similar'
       });
 
-      if (!movieResponse.data) {
+      if (!seriesResponse.data) {
         return res.status(404).json({ error: 'Filme não encontrado' });
       }
 
       // Enriquecer com dados detalhados
-      const movieDetails = await enrichMovieDetails(movieResponse.data, EnrichmentLevel.DETAILED);
-      res.status(200).json(movieDetails);
+      const seriesDetails = await enrichSeriesDetails(seriesResponse.data, EnrichmentLevel.DETAILED);
+      res.status(200).json(seriesDetails);
     } catch (error) {
       console.error('Erro ao buscar detalhes do filme:', error);
       res.status(500).json({ error: 'Erro ao buscar detalhes do filme' });
     }
   },
 
-  getNowPlayingMovies: async (req, res) => {
+  getNowPlayingSeries: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `now_playing_movies_${page}`;
+      const cacheKey = `now_playing_series_${page}`;
       
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -242,13 +242,13 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.getNowPlayingMovies({ page });
-      const processedMovies = await processMovies(response.data.results || []);
+      const response = await tmdbApi.getAiringTodaySeries({ page });
+      const processedSeries = await processSeries(response.data.results || []);
       
-      movieCache.set(cacheKey, processedMovies);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -262,14 +262,14 @@ module.exports = {
     }
   },
 
-  getUpcomingMovies: async (req, res) => {
+  getUpcomingSeries: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `upcoming_movies_${page}`;
+      const cacheKey = `upcoming_series_${page}`;
       
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -277,13 +277,13 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.getUpcomingMovies({ page });
-      const processedMovies = await processMovies(response.data.results || []);
+      const response = await tmdbApi.getOnTheAirSeries({ page });
+      const processedSeries = await processSeries(response.data.results || []);
       
-      movieCache.set(cacheKey, processedMovies);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -297,14 +297,14 @@ module.exports = {
     }
   },
 
-  getTopRatedMovies: async (req, res) => {
+  getTopRatedSeries: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `top_rated_movies_${page}`;
+      const cacheKey = `top_rated_series_${page}`;
       
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -312,13 +312,13 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.getTopRatedMovies({ page });
-      const processedMovies = await processMovies(response.data.results || []);
+      const response = await tmdbApi.getTopRatedSeries({ page });
+      const processedSeries = await processSeries(response.data.results || []);
       
-      movieCache.set(cacheKey, processedMovies);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -332,19 +332,19 @@ module.exports = {
     }
   },
 
-  getMoviesByYear: async (req, res) => {
+  getSeriesByYear: async (req, res) => {
     try {
       const year = parseInt(req.params.year);
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `movies_year_${year}_${page}`;
+      const cacheKey = `series_year_${year}_${page}`;
       
       if (isNaN(year) || year < 1900 || year > new Date().getFullYear() + 2) {
         return res.status(400).json({ error: 'Ano inválido' });
       }
       
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -352,17 +352,17 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.discoverMovies({
+      const response = await tmdbApi.discoverSeries({
         primary_release_year: year,
         sort_by: 'popularity.desc',
         page
       });
       
-      const processedMovies = await processMovies(response.data.results || []);
-      movieCache.set(cacheKey, processedMovies);
+      const processedSeries = await processSeries(response.data.results || []);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         year,
         pagination: {
           currentPage: page,
@@ -378,19 +378,19 @@ module.exports = {
   },
 
   // Filmes similares a um filme específico
-  getSimilarMovies: async (req, res) => {
+  getSimilarSeries: async (req, res) => {
     try {
-      const movieId = req.params.id;
+      const seriesId = req.params.id;
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `similar_movies_${movieId}_${page}`;
+      const cacheKey = `similar_series_${seriesId}_${page}`;
       
-      if (isNaN(Number(movieId))) {
+      if (isNaN(Number(seriesId))) {
         return res.status(400).json({ error: 'ID do filme inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -398,11 +398,11 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.getSimilarMovies(movieId, { page });
+      const response = await tmdbApi.getSimilarSeries(seriesId, { page });
       
       if (!response.data.results?.length) {
         return res.status(200).json({
-          movies: [],
+          series: [],
           pagination: {
             currentPage: page,
             hasMore: false
@@ -410,11 +410,11 @@ module.exports = {
         });
       }
 
-      const processedMovies = await processMovies(response.data.results);
-      movieCache.set(cacheKey, processedMovies);
+      const processedSeries = await processSeries(response.data.results);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -429,19 +429,19 @@ module.exports = {
   },
 
   // Recomendações baseadas em um filme
-  getMovieRecommendations: async (req, res) => {
+  getSeriesRecommendations: async (req, res) => {
     try {
-      const movieId = req.params.id;
+      const seriesId = req.params.id;
       const page = parseInt(req.query.page) || 1;
-      const cacheKey = `recommendations_${movieId}_${page}`;
+      const cacheKey = `recommendations_${seriesId}_${page}`;
       
-      if (isNaN(Number(movieId))) {
+      if (isNaN(Number(seriesId))) {
         return res.status(400).json({ error: 'ID do filme inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
+      if (seriesCache.get(cacheKey)) {
         return res.status(200).json({
-          movies: movieCache.get(cacheKey),
+          series: seriesCache.get(cacheKey),
           pagination: {
             currentPage: page,
             hasMore: true
@@ -449,11 +449,11 @@ module.exports = {
         });
       }
 
-      const response = await tmdbApi.getMovieRecommendations(movieId, { page });
+      const response = await tmdbApi.getSeriesRecommendations(seriesId, { page });
       
       if (!response.data.results?.length) {
         return res.status(200).json({
-          movies: [],
+          series: [],
           pagination: {
             currentPage: page,
             hasMore: false
@@ -461,11 +461,11 @@ module.exports = {
         });
       }
 
-      const processedMovies = await processMovies(response.data.results);
-      movieCache.set(cacheKey, processedMovies);
+      const processedSeries = await processSeries(response.data.results);
+      seriesCache.set(cacheKey, processedSeries);
       
       res.status(200).json({
-        movies: processedMovies,
+        series: processedSeries,
         pagination: {
           currentPage: page,
           hasMore: page < response.data.total_pages,
@@ -489,8 +489,8 @@ module.exports = {
         return res.status(400).json({ error: 'ID da pessoa inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
-        return res.status(200).json(movieCache.get(cacheKey));
+      if (seriesCache.get(cacheKey)) {
+        return res.status(200).json(seriesCache.get(cacheKey));
       }
 
       const response = await tmdbApi.getPersonDetails(personId);
@@ -506,7 +506,7 @@ module.exports = {
         profile_url: response.data.profile_path ? getProfileUrl(response.data.profile_path) : null
       };
 
-      movieCache.set(cacheKey, personDetails);
+      seriesCache.set(cacheKey, personDetails);
       res.status(200).json(personDetails);
     } catch (error) {
       console.error('Erro ao buscar detalhes da pessoa:', error);
@@ -515,20 +515,20 @@ module.exports = {
   },
 
   // Filmografia de uma pessoa
-  getPersonMovies: async (req, res) => {
+  getPersonSeries: async (req, res) => {
     try {
       const personId = req.params.id;
-      const cacheKey = `person_movies_${personId}`;
+      const cacheKey = `person_series_${personId}`;
       
       if (isNaN(Number(personId))) {
         return res.status(400).json({ error: 'ID da pessoa inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
-        return res.status(200).json(movieCache.get(cacheKey));
+      if (seriesCache.get(cacheKey)) {
+        return res.status(200).json(seriesCache.get(cacheKey));
       }
 
-      const response = await tmdbApi.getPersonMovies(personId);
+      const response = await tmdbApi.getPersonSeries(personId);
       
       if (!response.data) {
         return res.status(404).json({ error: 'Filmografia não encontrada' });
@@ -537,20 +537,20 @@ module.exports = {
       const { getPosterUrl } = require('../services/taxonomy');
       
       const filmography = {
-        cast: response.data.cast ? response.data.cast.map(movie => ({
-          ...movie,
-          poster_url: movie.poster_path ? getPosterUrl(movie.poster_path) : null,
-          release_year: movie.release_date ? new Date(movie.release_date).getFullYear() : null
+        cast: response.data.cast ? response.data.cast.map(series => ({
+          ...series,
+          poster_url: series.poster_path ? getPosterUrl(series.poster_path) : null,
+          release_year: series.release_date ? new Date(series.release_date).getFullYear() : null
         })).sort((a, b) => new Date(b.release_date || 0) - new Date(a.release_date || 0)) : [],
         
-        crew: response.data.crew ? response.data.crew.map(movie => ({
-          ...movie,
-          poster_url: movie.poster_path ? getPosterUrl(movie.poster_path) : null,
-          release_year: movie.release_date ? new Date(movie.release_date).getFullYear() : null
+        crew: response.data.crew ? response.data.crew.map(series => ({
+          ...series,
+          poster_url: series.poster_path ? getPosterUrl(series.poster_path) : null,
+          release_year: series.release_date ? new Date(series.release_date).getFullYear() : null
         })).sort((a, b) => new Date(b.release_date || 0) - new Date(a.release_date || 0)) : []
       };
 
-      movieCache.set(cacheKey, filmography);
+      seriesCache.set(cacheKey, filmography);
       res.status(200).json(filmography);
     } catch (error) {
       console.error('Erro ao buscar filmografia:', error);
@@ -568,8 +568,8 @@ module.exports = {
         return res.status(400).json({ error: 'ID da coleção inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
-        return res.status(200).json(movieCache.get(cacheKey));
+      if (seriesCache.get(cacheKey)) {
+        return res.status(200).json(seriesCache.get(cacheKey));
       }
 
       const response = await tmdbApi.getCollection(collectionId);
@@ -584,14 +584,14 @@ module.exports = {
         ...response.data,
         poster_url: response.data.poster_path ? getPosterUrl(response.data.poster_path) : null,
         backdrop_url: response.data.backdrop_path ? getBackdropUrl(response.data.backdrop_path) : null,
-        parts: response.data.parts ? response.data.parts.map(movie => ({
-          ...movie,
-          poster_url: movie.poster_path ? getPosterUrl(movie.poster_path) : null,
-          release_year: movie.release_date ? new Date(movie.release_date).getFullYear() : null
+        parts: response.data.parts ? response.data.parts.map(series => ({
+          ...series,
+          poster_url: series.poster_path ? getPosterUrl(series.poster_path) : null,
+          release_year: series.release_date ? new Date(series.release_date).getFullYear() : null
         })).sort((a, b) => new Date(a.release_date || 0) - new Date(b.release_date || 0)) : []
       };
 
-      movieCache.set(cacheKey, collection);
+      seriesCache.set(cacheKey, collection);
       res.status(200).json(collection);
     } catch (error) {
       console.error('Erro ao buscar coleção:', error);
@@ -600,27 +600,27 @@ module.exports = {
   },
 
   // Palavras-chave de um filme
-  getMovieKeywords: async (req, res) => {
+  getSeriesKeywords: async (req, res) => {
     try {
-      const movieId = req.params.id;
-      const cacheKey = `movie_keywords_${movieId}`;
+      const seriesId = req.params.id;
+      const cacheKey = `series_keywords_${seriesId}`;
       
-      if (isNaN(Number(movieId))) {
+      if (isNaN(Number(seriesId))) {
         return res.status(400).json({ error: 'ID do filme inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
-        return res.status(200).json(movieCache.get(cacheKey));
+      if (seriesCache.get(cacheKey)) {
+        return res.status(200).json(seriesCache.get(cacheKey));
       }
 
-      const response = await tmdbApi.getMovieKeywords(movieId);
+      const response = await tmdbApi.getSeriesKeywords(seriesId);
       
       if (!response.data) {
         return res.status(404).json({ error: 'Palavras-chave não encontradas' });
       }
 
-      const keywords = response.data.keywords || [];
-      movieCache.set(cacheKey, keywords);
+      const keywords = response.data.results || [];
+      seriesCache.set(cacheKey, keywords);
       res.status(200).json(keywords);
     } catch (error) {
       console.error('Erro ao buscar palavras-chave:', error);
@@ -638,8 +638,8 @@ module.exports = {
         return res.status(400).json({ error: 'ID da empresa inválido' });
       }
 
-      if (movieCache.get(cacheKey)) {
-        return res.status(200).json(movieCache.get(cacheKey));
+      if (seriesCache.get(cacheKey)) {
+        return res.status(200).json(seriesCache.get(cacheKey));
       }
 
       const response = await tmdbApi.getCompany(companyId);
@@ -648,7 +648,7 @@ module.exports = {
         return res.status(404).json({ error: 'Empresa não encontrada' });
       }
 
-      movieCache.set(cacheKey, response.data);
+      seriesCache.set(cacheKey, response.data);
       res.status(200).json(response.data);
     } catch (error) {
       console.error('Erro ao buscar detalhes da empresa:', error);
