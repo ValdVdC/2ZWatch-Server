@@ -2,6 +2,7 @@ const cors = require('cors');
 
 const allowedOrigins = [
   'http://localhost:4200',
+  'https://twozwatch.vercel.app'
 ];
 
 module.exports = cors({
